@@ -2,7 +2,8 @@ import { Router, Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { ToDo } from '../models/todo';
 import { randomUUID } from 'crypto';
-import { isSignedIn, signedInUsers } from './auth';
+import { isSignedIn } from './auth';
+import { getSignedInUser, getSignedInUserTodos, storeToken } from '../useDB'
 
 const router = Router();
 
@@ -11,8 +12,7 @@ const todoValidationRules = [
 ];
 
 router.get('/', isSignedIn , (req: Request, res: Response) => {
-  const currentUser = signedInUsers.get(req.headers['token'] as string);
-  res.json(currentUser?.todos);
+  res.json(getSignedInUserTodos(req.headers['token'] as string));
 });
 
 router.post('/', todoValidationRules, isSignedIn, (req: Request, res: Response) => {
@@ -22,15 +22,14 @@ router.post('/', todoValidationRules, isSignedIn, (req: Request, res: Response) 
     return res.status(400).json({ errors: errors.array() });
   }
 
-  const currentUser = signedInUsers.get(req.headers['token'] as string);
-
+  const currentUser = getSignedInUser(req.headers['token'] as string);
    const todo: ToDo = {
     _id: randomUUID(),
     task: req.body.task,
     completed: false,
   };
   currentUser?.todos.push(todo);
-  currentUser && signedInUsers.set(req.headers['token'] as string, currentUser);
+  currentUser && storeToken(req.headers['token'] as string, currentUser);
   res.status(201).json(todo)
 });
 
@@ -41,7 +40,7 @@ router.post('/update', isSignedIn, (req: Request, res: Response) => {
     return res.status(400).json({ errors: errors.array() });
   }
 
-  const currentUser = signedInUsers.get(req.headers['token'] as string);
+  const currentUser = getSignedInUser(req.headers['token'] as string);
   const todo = currentUser?.todos.find((t) => t._id === req.body.todoId);
 
   if (!todo) {
@@ -55,14 +54,14 @@ router.post('/update', isSignedIn, (req: Request, res: Response) => {
 
 });
 router.post('/delete/:id', isSignedIn, (req: Request, res: Response) => {
-  const currentUser = signedInUsers.get(req.headers['token'] as string);
+  const currentUser = getSignedInUser(req.headers['token'] as string);
 
   const index = currentUser?.todos.findIndex((t) => t._id === req.params.id);
   if (index === -1) {
     res.status(404).json({message : 'ToDo not found'});
   } else {
     currentUser?.todos.splice(index || 0, 1);
-    currentUser && signedInUsers.set(req.headers['token'] as string, currentUser);
+    currentUser && storeToken(req.headers['token'] as string, currentUser);
 
     return res.json({ message : 'Deleted' });
   }
