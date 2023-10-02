@@ -1,11 +1,14 @@
 import express, { Request, Response } from 'express';
 import todoRoutes from './routes/todo';
 import authRoutes from './routes/auth';
+import { connectDB } from './useDB';
 
 const app = express();
 const port = process.env.PORT || 3000;
 const cors = require('cors');
 
+require('dotenv').config();
+connectDB();
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 app.use(express.json());
